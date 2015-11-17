@@ -175,8 +175,13 @@
          
 ;evaluates an app expression whose car is a let-exp
 (define eval-let-exp
-  (lambda (app-exp env)
-    (extend-env-4-let (cdr app-exp)(cadr app-exp) env)))
+  (lambda (tupleList env)
+    (if (null? tupleList)
+        env
+        (if (not (eq? (car tupleList) 'app-exp))
+            (eval-let-exp (cdr tupleList) (eval-let-exp (car tupleList) env))
+            (extend-env-4-lambda (list (list-ref (list-ref tupleList 1) 1))
+                                 (list (list-ref (list-ref tupleList 2) 1)) env)))))
  ;**************************       
 (define eval-exp
   (lambda (lce env)
