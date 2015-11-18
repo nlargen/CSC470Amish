@@ -63,20 +63,14 @@
     (extend-env
      (extend-env-4-lambda-helper lovars lovals (empty-scope))
      env)))
-;Extending the environment for let
-(define extend-env-4-let
-  (lambda (varname varval env)
-    (extend-env
-     (extend-env-4-let-helper varname varval (empty-scope)) env)))
 
-(define extend-env-4-let-helper
-  (lambda (varname varval scope)
-    (cond
-      ((not (null? varname)) (extend-env-4-lambda-helper
-                             (cdr varname)
-                             (cdr varval)
-                             (extend-scope (car varname) (car varval) scope)))
-      (else scope))))
+(define extend-env-4-let
+  (lambda (tupleList env)
+    (if (null? tupleList)
+        env
+        (if (not (eq? (car tupleList) 'app-exp))
+            (extend-env-4-let (cdr tupleList) (extend-env-4-let (car tupleList) env))
+            (extend-env-4-lambda (list (list-ref (list-ref tupleList 1) 1)) (list (eval-exp (list-ref tupleList 2) env)) env)))))
 ;Constructors related to the LCE types
 (define lit-exp
   (lambda (lit) lit))
@@ -87,10 +81,6 @@
 (define lambda-exp
   (lambda (params body)
     (list 'lambda params body)))
-
-(define let-exp
-  (lambda (varnames varvals)
-    (append (list varnames) varvals)))
 
 (define app-exp
   (lambda (rator rands)
@@ -109,7 +99,7 @@
 (define boolean-arithmetic-op?
   (lambda (s)
     (contains s listOfArithmeticBooleanOperators)))
- 
+
 ;returns true is s is a reserved word and false otherwise
 (define reservedWord?
   (lambda (s)
@@ -164,7 +154,7 @@
         ((eq? theOp '/) (/ op1 op2))
         ((eq? theOp '%) (modulo op1 op2))
         (else #f)))))
-          
+
 ;evaluates an app expression whose car is an if-exp
 (define eval-if-exp
   (lambda (appExp env)
@@ -172,21 +162,11 @@
           (trueExp (eval-exp (cadr appExp) env))
           (falseExp (eval-exp (caddr appExp) env)))
     (if boolExp trueExp falseExp))))
-         
-;evaluates an app expression whose car is a let-exp
-(define eval-let-exp
-  (lambda (tupleList env)
-    (if (null? tupleList)
-        env
-        (if (not (eq? (car tupleList) 'app-exp))
-            (eval-let-exp (cdr tupleList) (eval-let-exp (car tupleList) env))
-            (extend-env-4-lambda (list (list-ref (list-ref tupleList 1) 1))
-                                 (list (list-ref (list-ref tupleList 2) 1)) env)))))
- ;**************************       
+
+    
 (define eval-exp
   (lambda (lce env)
     (cond
-      ((eq? (car lce) 'let-exp) (cadr lce))
       ((eq? (car lce) 'bool-exp) (cadr lce))
       ((eq? (car lce) 'lit-exp) (cadr lce))
       ((eq? (car lce) 'var-exp) (apply-env (cadr lce) env))
@@ -211,10 +191,9 @@
          ((eq? (list-ref (list-ref lce 1) 0) 'if-exp)
           ;first element of app-exp is an if-exp
           (eval-if-exp (cddr lce) env))
-         ((eq? (list-ref (list-ref lce 1) 0) 'let-exp) 
-           
-         ;first element of app-exp is a let-exp
-         (eval-let-exp (cadr lce) env))
+         ((eq? (list-ref (list-ref lce 1) 0) 'let-exp)
+          ;first element of app-exp is an let-exp
+          (eval-exp (list-ref lce 3) (extend-env-4-let (cdr(list-ref lce 2) ) env)))
          (else
           ;first element of app-exp is a var-exp
            (let ((theLambda (eval-exp (list-ref lce 1) env))
@@ -225,17 +204,22 @@
              (eval-exp theLambda (extend-env-4-lambda (list-ref theLambda 1)
                                                       theInputs
                                                       env)))))))))
-           
+
+
 
 (define run-program
   (lambda (lce)
     (eval-exp lce (empty-env))))
 
 
-(define anExp '(let ((a 5) (b 7)) (+ a b)))
-
+;(define anExp '(let ((a 5) (b 7)) (+ a (let ((c 3) (b (- b 2))) (+ b c)))))
+(define anExp '(let ((a 5) (b 7)) (+ a (let ((c 3) (b (* c 2))) (+ b c))))) ;should be 14 when working
+;(define anExp '(let ((a 5) (b 4)) (+ a b)))
 ;(define anExp '(lambda (a b) (a b)))
 
 ;Pass the above to apply-env to make sure it comes out
-(parse-exp anExp)
-;(run-program (parse-exp anExp))
+;(parse-exp anExp)
+(run-program (parse-exp anExp))
+
+;(define val (cdr (list-ref (parse-exp anExp) 2)))
+;(map (lambda (lst) (list-ref (list-ref lst 1)1)) val)
